@@ -4,62 +4,40 @@ from pathlib import Path
 import re
 import time
 
+
 def sanitize_show_filename(filename):
-    # Patterns
-    show_pattern = r'^(.*?)\s*-?\s*S(\d+)E(\d+)\s*-?\s*(.*?)(?:\s*\((\d{4})\))?(?:\s*\((.*?)\))?\s*(\d+p)?.*?(\.[^.]+)$'
-    movie_pattern = r'^(.*?)\s*(?:\((\d{4})\))?\s*-?\s*(.*?)(?:\s*\((.*?)\))?\s*(\d+p)?.*?(\.[^.]+)$'
-    extra_pattern = r'^(.*?)(?:\s*\((\d{4})\))?(\.[^.]+)$'
-    temp_file_pattern = r'^\.([a-f0-9]+)\.parts$'
-
-    # Check for temporary files
-    if re.match(temp_file_pattern, filename):
-        return None  # Skip temporary files
-
-    # Try matching show pattern
-    match = re.match(show_pattern, filename, re.IGNORECASE)
+    pattern = r'^(.*?)\s*(?:\((\d{4})\))?\s*-\s*S(\d+)E(\d+)\s*-\s*(.*?)(?:\s+\((.*?p).*?\))?\..*$'
+    
+    match = re.match(pattern, filename, re.IGNORECASE)
+    
     if match:
-        show_name, season, episode, episode_name, year, extra_info, quality, extension = match.groups()
-        new_filename = f"{show_name.strip()}"
+        show_name = match.group(1).strip()
+        year = match.group(2) or ""
+        season = match.group(3)
+        episode = match.group(4)
+        episode_name = match.group(5).strip()
+        format = match.group(6) or ""
+
+        # print(f"Show Name: {show_name}")
+        # print(f"Year: {year}")
+        # print(f"Season: {season}")
+        # print(f"Episode: {episode}")
+        # print(f"Episode Name: {episode_name}")
+        # print(f"Format: {format}")
+
+        new_filename = f"{show_name}"
         if year:
-            new_filename += f" ({year})"
+            new_filename += f"({year})"
         new_filename += f" S{season.zfill(2)}E{episode.zfill(2)}"
         if episode_name:
-            new_filename += f" - {episode_name.strip()}"
-        if quality:
-            new_filename += f" {quality}"
-        if extra_info:
-            new_filename += f" ({extra_info})"
-        new_filename += extension
-        return new_filename
-
-    # Try matching movie pattern
-    match = re.match(movie_pattern, filename, re.IGNORECASE)
-    if match:
-        movie_name, year, extra_name, extra_info, quality, extension = match.groups()
-        new_filename = f"{movie_name.strip()}"
-        if year:
-            new_filename += f" ({year})"
-        if extra_name:
-            new_filename += f" - {extra_name.strip()}"
-        if quality:
-            new_filename += f" {quality}"
-        if extra_info:
-            new_filename += f" ({extra_info})"
-        new_filename += extension
-        return new_filename
-
-    # Try matching extra content pattern
-    match = re.match(extra_pattern, filename, re.IGNORECASE)
-    if match:
-        extra_name, year, extension = match.groups()
-        new_filename = f"{extra_name.strip()}"
-        if year:
-            new_filename += f" ({year})"
-        new_filename += extension
-        return new_filename
-
-    print(f"No match found for: {filename}")
-    return filename
+            new_filename += f" - {episode_name}"
+        if format:
+            new_filename += f" {format}"
+        
+        return new_filename + os.path.splitext(filename)[1] #Add the original file extension
+    else:
+        print(f"No match found for: {filename}")
+        return filename
 
 def sanitize_folder_name(name):
     """
@@ -117,19 +95,18 @@ def process_directory(source_dir, target_dir, tracking_file, processed_files, to
                 new_target = target_path / item.name # removed folder sanitizing
                 process_directory(item, new_target, tracking_file, processed_files, total_files, start_time, unprocessed_files)
             elif item.is_file():
-                new_filename = sanitize_show_filename(item.name)
-                
-                if new_filename is None:
-                    print(f"Skipping temporary file: {item.name}")
-                    continue  # Skip this file and move to the next one
-                
+                # If it's a file, create a hardlink. I think processed_files is a counter
                 if is_in_featurettes:
                     relative_path = item.relative_to(source_path)
                     new_file = target_path / relative_path
                     new_file.parent.mkdir(parents=True, exist_ok=True)
                 else:
+                    new_filename = sanitize_show_filename(item.name)
                     new_file = target_path / new_filename
 
+                # if new_filename == citem.name:
+                #     unprocessed_files.append(str(item))
+                # else:
                 processed_files[0] += 1
                 if not new_file.exists():
                     create_hardlink(item, new_file)
@@ -176,7 +153,7 @@ def process_tv_shows(source_dir, target_dir, tracking_file):
     process_directory(source_path, target_path, tracking_file, processed_files, total_files, start_time, unprocessed_files)
 
     print("\nProcessing Complete.")
-    print(f"Took: {time.time() - start_time:.2f} seconds")
+    print(f"Total time: {time.time() - start_time:.2f} seconds")
     # What's :.2f notation?
    
     # print(f"Unprocessed files: {len(unprocessed_files)}")
