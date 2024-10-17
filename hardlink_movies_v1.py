@@ -29,37 +29,40 @@ def update_tracking_file(tracking_file, source_path, target_path):
     with open(tracking_file, 'w') as f:
         json.dump(data, f, indent=2)
 
-def discover_files(directory):
-    return [f for f in Path(directory).rglob('*') if f.is_file()]
-
-def process_files(files, target_dir, tracking_file):
-
-    total_files = len(files)
-    processed_files = 0 # Using a list to allow modification in nested functions
-    start_time = time.time()
+def process(source_dir, target_dir, tracking_file):
+    source_path = Path(source_dir).resolve()
+    target_path = Path(target_dir).resolve()
 
     if not os.path.exists(tracking_file):
         with open(tracking_file, 'w') as f:
             json.dump({},f)
 
-    for file in files:
-            relative_path = file.relative_to(source_directory)
-            new_hardlink = target_dir / relative_path
-            new_hardlink.parent.mkdir(parents=True, exist_ok=True)
+    total_files = sum(1 for _ in source_path.rglob('*') if _.is_file())
+    processed_files = [0] # Using a list to allow modification in nested functions
+    #unprocessed_files = []
+    start_time = time.time()
+
+    for item in source_path.iterdir():
+        if item.is_dir():
+            new_target = target_path / item.name
+            new_target.mkdir(parents=True, exist_ok=True)
+            process(item, new_target, tracking_file)
+        elif item.is_file():
+            new_hardlink = target_path / item.name
             
-            processed_files += 1
+            processed_files[0] += 1
             if not new_hardlink.exists():
-                create_hardlink(str(file), str(new_hardlink))
-                update_tracking_file(tracking_file, str(file), str(new_hardlink))
+                create_hardlink(str(item), str(new_hardlink))
+                update_tracking_file(tracking_file, str(item), str(new_hardlink))
             
-            progress = (processed_files / total_files)*100
+            progress = (processed_files[0] / total_files)*100
             elapsed_time = time.time() - start_time
             est_total_time = elapsed_time*100 / progress if progress > 0 else 0
             est_remaining_time = est_total_time - elapsed_time
-            print(f"\rProgress: {progress:.2f}% | Processed: {processed_files}/{total_files} | Estimated remaining time: {est_remaining_time:.2f} seconds", end="")
+            print(f"\rProgress: {progress:.2f}% | Processed: {processed_files[0]}/{total_files} | Estimated remaining time: {est_remaining_time:.2f} seconds", end="")
 
     print("\nProcessing Complete")
-    print(f"Took: {time.time() - start_time:.2f} seconds")            
+    print(f"Total time: {time.time() - start_time:.2f} seconds")            
 
 if __name__ == "__main__":
 
@@ -72,8 +75,6 @@ if __name__ == "__main__":
     # Set the tracking file path
     tracking_file = hardlinks_dir / "hardlinked_movies.json"
 
-    print("Discovering files...")
-    files_to_process = discover_files(source_directory)
-    print(f"Found {len(files_to_process)} files to process")
-    process_files(files_to_process, target_directory, tracking_file)
+    process(source_directory, target_directory, tracking_file)
+    #print("Processing complete.")
     

@@ -6,40 +6,38 @@ import time
 
 
 def sanitize_show_filename(filename):
-    # Regular expression to match TV show filename components. Need to understand how this regex works
-    pattern = r'(.*?)\s*-\s*S(\d+)E(\d+)\s*-\s*(.*?)(?:\s*\(.*?\))?\s*(?:(720p|1080p|2160p))?\s*(?:\[.*?\])?.*'
-
-    # Extract components? what match, re, abd group objects do?
+    pattern = r'^(.*?)\s*(?:\((\d{4})\))?\s*-\s*S(\d+)E(\d+)\s*-\s*(.*?)(?:\s+\((.*?p).*?\))?\..*$'
+    
     match = re.match(pattern, filename, re.IGNORECASE)
-
+    
     if match:
-        show_name = match.group(1) or "Unknown Show"
-        season = match.group(2)
-        episode = match.group(3)
-        episode_name = match.group(4) or ""
-        format = match.group(5) or ""
+        show_name = match.group(1).strip()
+        year = match.group(2) or ""
+        season = match.group(3)
+        episode = match.group(4)
+        episode_name = match.group(5).strip()
+        format = match.group(6) or ""
 
-        # Sanitize individual components
-        show_name = re.sub(r'[^\w\s-]', '', show_name).strip()
-        episode_name = re.sub(r'[^\w\s-]', '', episode_name).strip()
+        # print(f"Show Name: {show_name}")
+        # print(f"Year: {year}")
+        # print(f"Season: {season}")
+        # print(f"Episode: {episode}")
+        # print(f"Episode Name: {episode_name}")
+        # print(f"Format: {format}")
 
-        season=str(season)
-        episode=str(episode)
-
-        new_filename = f"{show_name} S{season.zfill(2)}E{episode.zfill(2)}"
+        new_filename = f"{show_name}"
+        if year:
+            new_filename += f"({year})"
+        new_filename += f" S{season.zfill(2)}E{episode.zfill(2)}"
         if episode_name:
             new_filename += f" - {episode_name}"
         if format:
             new_filename += f" {format}"
-
-        # Get the original file extension
-        _, extension = os.path.splitext(filename)
-
-        # Return new filename with original extension
-        return new_filename + extension
+        
+        return new_filename + os.path.splitext(filename)[1] #Add the original file extension
     else:
+        print(f"No match found for: {filename}")
         return filename
-        # If the pattern doesn't match, return the original filename
 
 def sanitize_folder_name(name):
     """
@@ -106,7 +104,7 @@ def process_directory(source_dir, target_dir, tracking_file, processed_files, to
                     new_filename = sanitize_show_filename(item.name)
                     new_file = target_path / new_filename
 
-                # if new_filename == item.name:
+                # if new_filename == citem.name:
                 #     unprocessed_files.append(str(item))
                 # else:
                 processed_files[0] += 1
@@ -117,7 +115,7 @@ def process_directory(source_dir, target_dir, tracking_file, processed_files, to
                 # Update and Display progress
                 progress = (processed_files[0] / total_files)*100
                 elapsed_time = time.time() - start_time
-                est_total_time = elapsed_time*100 / progress
+                est_total_time = elapsed_time*100 / progress if progress > 0 else 0
                 est_remaining_time = est_total_time - elapsed_time
                 print(f"\rProgress: {progress:.2f}% | Processed: {processed_files[0]}/{total_files} | Estimated remaining time: {est_remaining_time:.2f} seconds", end="")
     
@@ -125,8 +123,8 @@ def process_directory(source_dir, target_dir, tracking_file, processed_files, to
             print(f"\nError processing {item}: {str(e)}")
             unprocessed_files.append(str(item))
     
-    if is_in_featurettes:
-        print(f"\nProcessed Featurette Directory: {source_path}")
+    # if is_in_featurettes:
+    #     print(f"\nProcessed Featurette Directory: {source_path}")
 
 def process_tv_shows(source_dir, target_dir, tracking_file):
     """
@@ -144,7 +142,7 @@ def process_tv_shows(source_dir, target_dir, tracking_file):
             #Need to check how this works wrt to json.dump above
     
     # Count total files to process, What?
-    total_files = sum(len(list(Path(root).glob('*'))) for root, _, _ in os.walk(source_path))
+    total_files = sum(1 for _ in source_path.rglob('*') if _.is_file())
     processed_files = [0] # Using a list to allow modification in nested functions
     unprocessed_files = []
     start_time = time.time() # Not sure how this works wrt to above time.time() call
@@ -158,13 +156,13 @@ def process_tv_shows(source_dir, target_dir, tracking_file):
     print(f"Total time: {time.time() - start_time:.2f} seconds")
     # What's :.2f notation?
    
-    print(f"Unprocessed files: {len(unprocessed_files)}")
-    if unprocessed_files:
-        print("\nFiles not processed for hardlinking:")
-        for file in unprocessed_files:
-            print(file)
-    else:
-        print("\nAll files were processed successfully.")
+    # print(f"Unprocessed files: {len(unprocessed_files)}")
+    # if unprocessed_files:
+    #     print("\nFiles not processed for hardlinking:")
+    #     for file in unprocessed_files:
+    #         print(file)
+    # else:
+        #print("\nAll files were processed successfully.")
 
 if __name__ == "__main__":
 
