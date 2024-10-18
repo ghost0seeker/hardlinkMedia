@@ -1,0 +1,33 @@
+# Python-related
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual environment
+venv/
+env/
+*.env
+
+# Hugging Face model cache
+.cache/huggingface/
+
+# Specific to your project
+media_filename_parser.py
+
+# OS-specific
+.DS_Store
+Thumbs.db
+
+# IDEs and editors
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Logs and databases
+*.log
+*.sqlite
+
+# Output files
+output/
+results/
